@@ -1,0 +1,17 @@
+Index: libiberty/cplus-dem.c
+===================================================================
+--- libiberty/cplus-dem.c	(revision 234607)
++++ libiberty/cplus-dem.c	(working copy)
+@@ -1237,11 +1237,12 @@  squangle_mop_up (struct work_stuff *work)
+     {
+       free ((char *) work -> btypevec);
+       work->btypevec = NULL;
++      work->bsize = 0;
+     }
+   if (work -> ktypevec != NULL)
+     {
+       free ((char *) work -> ktypevec);
+       work->ktypevec = NULL;
+     }
+ }
+

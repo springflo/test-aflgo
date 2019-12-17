@@ -1,0 +1,17 @@
+Index: libiberty/cplus-dem.c
+===================================================================
+--- libiberty/cplus-dem.c	(revision 234663)
++++ libiberty/cplus-dem.c	(working copy)
+@@ -2999,6 +2999,11 @@ gnu_special (work, mangled, declp)
+ 		      success = 1;
+ 		      break;
+ 		    }
++                  else if (n == -1)
++                    {
++                      success = 0;
++                      break;
++                    }
+ 		}
+ 	      else
+ 		{
+ 		
