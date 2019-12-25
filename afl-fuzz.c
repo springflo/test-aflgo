@@ -297,8 +297,9 @@ static s8  interesting_8[]  = { INTERESTING_8 };
 static s16 interesting_16[] = { INTERESTING_8, INTERESTING_16 };
 static s32 interesting_32[] = { INTERESTING_8, INTERESTING_16, INTERESTING_32 };
 
-//add patched target app path
-static char patched_file[256];
+//add patched CVE
+static char CVElist[256];
+static char currentCVE[8];
 
 /* Fuzzing stages */
 
@@ -3194,17 +3195,7 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
   u8  keeping = 0, res;
   //added in 2019/12/16
   int crash_flag = 0;
-  char checkCVE[256];
-  //end add 
-  //add patched file
-  if(strstr(patched_file, "-3") == NULL)
-  {
-	  char * tmp;
-	  strcpy(patched_file, argv[0]);
-	  if(tmp = strstr(patched_file, "-2")){
-	   *(tmp+1) = '3';
-	  }
-  } 
+  char checkCVE[1024];
 
   if (fault == crash_mode) {
 
@@ -3408,20 +3399,33 @@ keep_as_crash:
   //add check CVE
   if(crash_flag)
   {
-	sprintf(checkCVE, "%s < %s > tmp", patched_file, fn);
-	if(system(checkCVE) == 0){
-	  OKF("First Crash is Achieved! Exit now!");
-	  ck_free(fn);
-  	  exit(0);
-  	}else{
-  	  crash_flag = 0;
-  	}
+	sprintf(checkCVE, "%s/../../BUILD/obj-%s-3/binutils/cxxfilt < %s > tmp", out_dir, currentCVE, fn);
+	if(system(checkCVE) == 0) //witniss current CVE 
+	{ 
+	  char tmp[256]; // strtok will break origin list
+	  char * plist;
+	  strncpy(tmp, CVElist, 256);
+	  plist = strtok(tmp, ",");
+	  while(plist != NULL){
+        snprintf(checkCVE, 1024, "%s/../../BUILD/obj-%s-3/binutils/cxxfilt < %s > tmp", out_dir, plist, fn);
+        if(system(checkCVE) == 0)//witnessed this CVE, but may not expose current CVE.
+        {  
+          break;
+        } 
+	    plist = strtok(NULL, ",");     
+	  }
+	  if(plist == NULL)
+	  {
+		OKF("First Crash is Achieved! Exit now!");
+		ck_free(fn);
+		exit(0);	    
+	  }    
+	}
   } 
   //end add
-  
-  ck_free(fn);  
+  crash_flag = 0; 
+  ck_free(fn); 
   return keeping;
-
 }
 
 
@@ -7861,7 +7865,6 @@ static char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
 
 }
 
-
 /* Make a copy of the current command line. */
 
 static void save_cmdline(u32 argc, char** argv) {
@@ -7923,7 +7926,7 @@ int main(int argc, char** argv) {
   gettimeofday(&tv, &tz);
   srandom(tv.tv_sec ^ tv.tv_usec ^ getpid());
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:Qz:c:")) > 0)
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:Qz:c:P:")) > 0)
 
     switch (opt) {
 
@@ -7940,6 +7943,7 @@ int main(int argc, char** argv) {
 
         if (out_dir) FATAL("Multiple -o options not supported");
         out_dir = optarg;
+        strcpy(currentCVE, strrchr(out_dir, '/')+1);
         break;
 
       case 'M': { /* master sync ID */
@@ -8125,8 +8129,23 @@ int main(int argc, char** argv) {
           }
 
         }
-
+        
         break;
+        
+        //add option -P fixed CVE version path, to see whether witness/expose the error
+        case 'P': { /* fixed CVE version path */
+			FILE * f;
+			if(!(f = fopen(optarg, "r"))){
+				PFATAL ("Can not open %s.", optarg);
+			}
+			{
+				if((fgets(CVElist, sizeof(CVElist), f)==NULL) || (strlen(CVElist) == (sizeof(CVElist)-1))){
+					PFATAL ("CVElist too long or read CVElist error.");
+				}
+			}	
+        }
+        break;
+        //end add
 
       default:
 
