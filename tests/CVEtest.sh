@@ -44,7 +44,8 @@ $DOWNLOAD_DIR/BUILD/configure --disable-shared --disable-gdb --disable-libdecnum
 make 
 echo "First Compile done."
 
-TARGET=$OBJ_1/binutils/cxxfilt
+PROGRAM_NAME=cxxfilt
+PROGRAM_DIR=$OBJ_1/binutils/
 
 #### Clean up
 cat $TMP_DIR/BBnames.txt | rev | cut -d: -f2- | rev | sort | uniq > $TMP_DIR/BBnames2.txt && mv $TMP_DIR/BBnames2.txt $TMP_DIR/BBnames.txt
@@ -52,7 +53,7 @@ cat $TMP_DIR/BBcalls.txt | sort | uniq > $TMP_DIR/BBcalls2.txt && mv $TMP_DIR/BB
 
 #### Generate distance
 
-$AFLGO/scripts/genDistance.sh $OBJ_1 $TMP_DIR ${TARGET}
+$AFLGO/scripts/genDistance.sh $PROGRAM_DIR $TMP_DIR $PROGRAM_NAME
 
 echo "Distance values:"
 head -n5 $TMP_DIR/distance.cfg.txt
@@ -96,9 +97,8 @@ do
 	if [ -d $DIR_OUT ]; then
 		rm -rf $DIR_OUT
 	fi
-	$AFLGO/afl-fuzz -S target_result -z exp -c $TIME -i $DIR_IN -o $DIR_OUT ${TARGET} 
-	#gdb --args $AFLGO/afl-fuzz -S target_result -z exp -c $TIME -i $DIR_IN -o $DIR_OUT -P $SUBJECT/CVElists $SUBJECT/${TARGET} 
+	$AFLGO/afl-fuzz -S target_result -z exp -c $TIME -i $DIR_IN -o $DIR_OUT $TARGET
+	#gdb --args $AFLGO/afl-fuzz -S target_result -z exp -c $TIME -i $DIR_IN -o $DIR_OUT -P $SUBJECT/CVElists $TARGET
 	#### valgrind ./BUILD/obj-${CVE}-2/binutils/cxxfilt < ./crashfile
 done
-!
 popd
