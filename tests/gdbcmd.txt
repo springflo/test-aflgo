@@ -1,0 +1,11 @@
+start
+c
+set logging file logging.txt
+set logging on
+set height 0
+bt 500
+set logging off
+q 
+y
+
+
