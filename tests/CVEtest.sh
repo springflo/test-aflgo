@@ -47,7 +47,10 @@ $DOWNLOAD_DIR/BUILD/configure --disable-shared --disable-gdb --disable-libdecnum
 make 
 echo "First Compile done."
 
+<<<<<<< HEAD
 TARGET=$OBJ_1/binutils/cxxfilt
+=======
+>>>>>>> 3f2a5dc0edc032d83bf5da84ff32e32d534f88e8
 PROGRAM_NAME=cxxfilt
 PROGRAM_DIR=$OBJ_1/binutils/
 
@@ -102,9 +105,13 @@ do
 	if [ -d $DIR_OUT ]; then
 		rm -rf $DIR_OUT
 	fi
+<<<<<<< HEAD
 	$AFLGO/afl-fuzz -S target_result -z exp -c $TIME -i $DIR_IN -o $DIR_OUT $TARGET 
 	#gdb --args $AFLGO/afl-fuzz -S target_result -z exp -c $TIME -i $DIR_IN -o $DIR_OUT $TARGET 
+=======
+	$AFLGO/afl-fuzz -S target_result -z exp -c $TIME -i $DIR_IN -o $DIR_OUT $TARGET
+	#gdb --args $AFLGO/afl-fuzz -S target_result -z exp -c $TIME -i $DIR_IN -o $DIR_OUT -P $SUBJECT/CVElists $TARGET
+>>>>>>> 3f2a5dc0edc032d83bf5da84ff32e32d534f88e8
 	#### valgrind ./BUILD/obj-${CVE}-2/binutils/cxxfilt < ./crashfile
 done
-!
 popd
