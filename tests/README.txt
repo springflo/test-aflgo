@@ -2,8 +2,8 @@
   binutils		binutils CVEs test directory
   CVE-out 		the crash file expose certain CVE, with sub-directory CVE number,
   				copied from binutils/out/$CVE/ using CVE-check-crash.sh
-  CVEpatch 		the patch file of certain CVE, named with CVE number
-  CVEtarget		the target line of certain CVE, named with CVE number
+  CVE-patch 		the patch file of certain CVE, named with CVE number
+  CVE-target-line		the target line of certain CVE, named with CVE number
   
 ----files------------
   CVEtest.sh	Reproduce certain CVE, usage: ./CVEtest.sh 2016-4487
