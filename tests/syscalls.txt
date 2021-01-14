@@ -1,0 +1,11 @@
+// memory allocation
+"calloc",  "malloc",   "realloc",  "free",
+// memory operation
+"memcpy",  "memmove",  "memchr",   "memset",  
+"memcmp",
+// string operation
+"strcpy",  "strncpy",  "strerror", "strlen",
+"strcat",  "strncat",  "strcmp",   "strspn",
+"strcoll", "strncmp",  "strxfrm",  "strstr",
+"strchr",  "strcspn",  "strpbrk",  "strrchr", 
+"strtok",

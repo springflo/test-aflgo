@@ -100,8 +100,9 @@ char AFLCoverage::ID = 0;
 
 bool AFLCoverage::doInitialization(Module &M){
 	for(auto v: syscall_routines){
-		syscall_map.
+		syscall_map[v] = 0;
 	}
+	
 
 	
 	return false;
