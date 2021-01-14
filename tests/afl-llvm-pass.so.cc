@@ -37,6 +37,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <map>
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
@@ -61,6 +62,8 @@ namespace {
 		StringRef getPassName() const override {
 			return "American Fuzzy Lop Instrumentation";
 		}
+		
+		bool doInitialization(Module &M) override;
 
 	};
 
@@ -81,10 +84,12 @@ std::vector<std::string> syscall_routines = {
   "strtok",
   // TODO... add more interesting functions
 };
+std::map<std::string, int op> syscall_map;
+
 
 bool is_syscall(std::string fn_name){
   for(std::vector<std::string>::size_type i = 0; i < syscall_routines.size(); i++){
-    if(fn_name.compare(syscall_routines[i]) == 0)
+    if(fn_name.compare(0, syscall_routines[i].size(), syscall_routines[i]) == 0)
       return true;
   }
   return false;
@@ -93,12 +98,22 @@ bool is_syscall(std::string fn_name){
 
 char AFLCoverage::ID = 0;
 
+bool AFLCoverage::doInitialization(Module &M){
+	for(auto v: syscall_routines){
+		syscall_map.
+	}
+
+	
+	return false;
+}
+
 bool AFLCoverage::runOnModule(Module &M) {
 
 	LLVMContext &C = M.getContext();
 
 	IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
 	IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
+	IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
 
 	/* Show a banner */
 	char be_quiet = 0;
@@ -166,63 +181,64 @@ bool AFLCoverage::runOnModule(Module &M) {
 
 
 	for (auto &F : M) {
+		 
+		bool functionStart = true;
+		
+		//FEIFUZZ: instrument the recursive function
+		//afl_func_ptr[cur_func|prev_func]++, prev_func = cur_func >> 1
 
-		unsigned int cur_func = AFL_R(FUNC_SIZE); 
-		bool isRecurse = false;
-
-		AttributeSet funcAttrs = F.getAttributes();
-		if (!funcAttrs.hasAttribute(Attribute::NoRecurse)) {
-			isRecurse = true;
-		}
-
-		int FuncBBcounts = 0;  // numbers of basicblocks in a function
-
-		for (auto &BB : F) {	
+		for (auto &BB : F) {
 
 			BasicBlock::iterator IP = BB.getFirstInsertionPt();
 			IRBuilder<> IRB(&(*IP));
+			
+			if(functionStart){
+			
+				functionStart = false;
+				unsigned int cur_func = AFL_R(FUNC_SIZE);
+				
+				OKF("%s.", F.getName());
+				if(!F.hasFnAttribute(Attribute::NoRecurse))
+				{						
+					ConstantInt *CurFunc = ConstantInt::get(Int32Ty, cur_func);
+			
+				    /* load prev_func */
+				    LoadInst *PrevFunc = IRB.CreateLoad(AFLPrevFunc);
+				    PrevFunc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+				    Value *PrevFuncCasted = IRB.CreateZExt(PrevFunc, IRB.getInt32Ty());
 
+				    /* Load SHM pointer */ 
+				    LoadInst *FuncPtr = IRB.CreateLoad(AFLFuncPtr);
+				    FuncPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+				    Value *FuncPtrIdx =
+				        IRB.CreateGEP(FuncPtr, IRB.CreateXor(PrevFuncCasted, CurFunc));
+
+					/* Update bitmap */
+					LoadInst *CounterFunc = IRB.CreateLoad(FuncPtrIdx);
+					CounterFunc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+					Value *IncrFunc = IRB.CreateAdd(CounterFunc, ConstantInt::get(Int8Ty, 1));
+					IRB.CreateStore(IncrFunc, FuncPtrIdx)
+						->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+						
+					/* Set prev_func to cur_func >> 1 */
+				    StoreInst *StoreFunc =
+				            IRB.CreateStore(ConstantInt::get(Int32Ty, cur_func >> 1), AFLPrevFunc);
+				    StoreFunc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));	
+				    
+				    func_recursion++;
+				    		
+				}				
+			}
+			
 			if (AFL_R(100) >= inst_ratio) continue;
 
 			/* Make up cur_loc */
 			unsigned int cur_loc = AFL_R(MAP_SIZE);
-			bool is_vul_BB = false;
-
-            //FEIFUZZ: instrument the recursive function
-			//afl_func_ptr[cur_func|prev_func]++, prev_func = cur_func >> 1
-			ConstantInt *CurFunc = ConstantInt::get(Int32Ty, cur_func);
-			
-			if (!FuncBBcounts && isRecurse) { 
-				is_vul_BB = true;
-
-                /* load prev_func */
-                LoadInst *PrevFunc = IRB.CreateLoad(AFLPrevFunc);
-                PrevFunc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-                Value *PrevFuncCasted = IRB.CreateZExt(PrevFunc, IRB.getInt32Ty());
-
-                /* Load SHM pointer */ 
-                LoadInst *FuncPtr = IRB.CreateLoad(AFLFuncPtr);
-                FuncPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-                Value *FuncPtrIdx =
-                    IRB.CreateGEP(FuncPtr, IRB.CreateXor(PrevFuncCasted, CurFunc));
-
-				/* Update bitmap */
-				LoadInst *CounterFunc = IRB.CreateLoad(FuncPtrIdx);
-				Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-				Value *IncrFunc = IRB.CreateAdd(CounterFunc, ConstantInt::get(Int8Ty, 1));
-				IRB.CreateStore(IncrFunc, FuncPtrIdx)
-					->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-
-                func_recursion++;
-            }
-			/* Set prev_func to cur_func >> 1 */
-            StoreInst *StoreFunc =
-                    IRB.CreateStore(ConstantInt::get(Int32Ty, cur_func >> 1), AFLPrevFunc);
-            StoreFunc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-
+		
+			bool is_vul_BB = false;			
 
 			for(auto &Inst : BB){
-				if(CallInst* call_inst = dyn_cast<CallInst>(&inst)) {
+				if(CallInst* call_inst = dyn_cast<CallInst>(&Inst)) {
 					Function* fn = call_inst->getCalledFunction();				
 					if(fn == NULL){
 						Value *v = call_inst->getCalledValue();
@@ -240,12 +256,12 @@ bool AFLCoverage::runOnModule(Module &M) {
 						//todo argvs 
 					}
 				}
-				else if(inst.mayReadFromMemory()){ // memory read
+				else if(Inst.mayReadFromMemory()){ // memory read
 					is_vul_BB = true;
 					mem_read_cnt++;
 					//todo operand
 				}
-				else if(inst.mayWriteToMemory()){
+				else if(Inst.mayWriteToMemory()){
 					is_vul_BB = true;
 					mem_write_cnt++;
 					//todo operand
@@ -263,13 +279,13 @@ bool AFLCoverage::runOnModule(Module &M) {
 			if(is_vul_BB){
 				/* Load vulnerable SHM pointer */
 				LoadInst *MapPtrVul = IRB.CreateLoad(AFLMapPtrVul);
-				MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+				MapPtrVul->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 				Value *MapPtrIdxVul =
 					IRB.CreateGEP(MapPtrVul, IRB.CreateXor(PrevLocCasted, CurLoc));
 
 				/* Update bitmap */
 				LoadInst *CounterVul = IRB.CreateLoad(MapPtrIdxVul);
-				Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+				CounterVul->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 				Value *IncrVul = IRB.CreateAdd(CounterVul, ConstantInt::get(Int8Ty, 1));
 				IRB.CreateStore(IncrVul, MapPtrIdxVul)
 					->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
@@ -296,7 +312,6 @@ bool AFLCoverage::runOnModule(Module &M) {
 			Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
 			inst_blocks++; 
-			FuncBBcounts++;
 		}
 
 	}
@@ -320,6 +335,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 	return true;
 
 }
+
 
 
 static void registerAFLPass(const PassManagerBuilder &,
