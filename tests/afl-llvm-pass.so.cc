@@ -88,11 +88,11 @@ std::map<std::string, int op> syscall_map;
 
 
 bool is_syscall(std::string fn_name){
-  for(std::vector<std::string>::size_type i = 0; i < syscall_routines.size(); i++){
-    if(fn_name.compare(0, syscall_routines[i].size(), syscall_routines[i]) == 0)
-      return true;
-  }
-  return false;
+	for(std::vector<std::string>::size_type i = 0; i < syscall_routines.size(); i++){
+		if(fn_name.compare(0, syscall_routines[i].size(), syscall_routines[i]) == 0)
+			return true;
+		}
+	return false;
 }
 
 
@@ -102,7 +102,7 @@ bool AFLCoverage::doInitialization(Module &M){
 	for(auto v: syscall_routines){
 		syscall_map[v] = 0;
 	}
-	
+
 
 	
 	return false;
